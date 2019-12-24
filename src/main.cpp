@@ -5,20 +5,16 @@
 // Defines and typedefs
 
 // Missing values _SYSTEM_INFORMATION_CLASS enum from <winternl.h>
-const int g_SystemExtendedProcessInformationID = 0x39;
-const int g_SystemFullProcessInformationID = 0x94;
-
-using NtQuerySystemInformationFn = NTSTATUS(WINAPI *)(
-    __in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
-    __inout    PVOID SystemInformation,
-    __in       ULONG SystemInformationLength,
-    __out_opt  PULONG ReturnLength
-    );
+enum class MissingInfoClassIds
+{
+    SystemExtendedProcessInformationID = 0x39,
+    SystemFullProcessInformationID = 0x94
+};
 
 //////////////////////////////////////////////////////////////////////////
 // Original function
 
-auto OriginalNtQuerySystemInformation = reinterpret_cast<NtQuerySystemInformationFn>(
+auto OriginalNtQuerySystemInformation = reinterpret_cast<decltype(NtQuerySystemInformation) *>(
     ::GetProcAddress(::GetModuleHandle(L"ntdll.dll"), "NtQuerySystemInformation"));
 
 //////////////////////////////////////////////////////////////////////////
@@ -44,8 +40,8 @@ NTSTATUS WINAPI HookedNtQuerySystemInformation(
     switch (SystemInformationClass)
     {
         case SystemProcessInformation:
-        case g_SystemExtendedProcessInformationID:
-        case g_SystemFullProcessInformationID:
+        case MissingInfoClassIds::SystemExtendedProcessInformationID:
+        case MissingInfoClassIds::SystemFullProcessInformationID:
         {
             // Loop through the list of processes
             PSYSTEM_PROCESS_INFORMATION pCurrent = nullptr;
