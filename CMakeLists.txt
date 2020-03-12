@@ -18,4 +18,4 @@ add_library(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "/Yupch.h")
 set_source_files_properties(src/pch.cpp PROPERTIES COMPILE_FLAGS "/Ycpch.h")
 
-target_link_libraries(${PROJECT_NAME} mhook)
+target_link_libraries(${PROJECT_NAME} mhook ntdll)
