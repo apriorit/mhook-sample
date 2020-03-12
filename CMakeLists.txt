@@ -1,18 +1,15 @@
-cmake_minimum_required( VERSION 3.4.0 )
+cmake_minimum_required(VERSION 3.4.0)
 project(mhook-sample CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
 
-add_definitions(-DUNICODE -D_UNICODE)
+add_definitions(-DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=NTDDI_WIN8)
 
 add_subdirectory(3rd-party/mhook)
 
-set (CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 add_library(${PROJECT_NAME} 
 	SHARED
-	src/targetver.h
 	src/pch.h
 	src/pch.cpp
 	src/main.cpp
