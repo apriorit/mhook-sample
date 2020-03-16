@@ -8,7 +8,7 @@
 #define RTL_CONSTANT_STRING(s) \
 { \
     sizeof( s ) - sizeof( (s)[0] ), \
-    sizeof( s ) / sizeof((s)), \
+    sizeof( s ), \
     (s) \
 }
 
