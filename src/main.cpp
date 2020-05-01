@@ -37,10 +37,10 @@ enum class SystemInformationClass
 
 //////////////////////////////////////////////////////////////////////////
 // array of process names to hide
-static const UNICODE_STRING hiddenProcessNames[] =
+const UNICODE_STRING k_hiddenProcessNames[] =
 {
-	RTL_CONSTANT_STRING(L"calc.exe"),
-	RTL_CONSTANT_STRING(L"Calculator.exe")
+    RTL_CONSTANT_STRING(L"calc.exe"),
+    RTL_CONSTANT_STRING(L"Calculator.exe")
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -74,9 +74,9 @@ NTSTATUS WINAPI HookedNtQuerySystemInformation(
         case SystemInformationClass::SystemProcessInformation:
         case SystemInformationClass::SystemExtendedProcessInformationID:
         case SystemInformationClass::SystemFullProcessInformationID:
-		{
+        {
 
-			// Loop through the list of processes
+            // Loop through the list of processes
             for (PSYSTEM_PROCESS_INFORMATION  pCurrent = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(systemInformation),
                 pNext = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(Add2Ptr(pCurrent, pCurrent->NextEntryOffset))
                 ;
@@ -86,11 +86,11 @@ NTSTATUS WINAPI HookedNtQuerySystemInformation(
                 pNext = pCurrent->NextEntryOffset ? reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(Add2Ptr(pCurrent, pCurrent->NextEntryOffset)) : nullptr
             )
             {
-                if (RtlEqualUnicodeString(&pNext->ImageName, &hiddenProcessNames[0], TRUE)
-                    || RtlEqualUnicodeString(&pNext->ImageName, &hiddenProcessNames[1], TRUE)
-				)
+                if (RtlEqualUnicodeString(&pNext->ImageName, &k_hiddenProcessNames[0], TRUE)
+                    || RtlEqualUnicodeString(&pNext->ImageName, &k_hiddenProcessNames[1], TRUE)
+                )
                 {
-                    pCurrent->NextEntryOffset =  (0 == pNext->NextEntryOffset) ? 0 : pCurrent->NextEntryOffset + pNext->NextEntryOffset;
+                    pCurrent->NextEntryOffset = (0 == pNext->NextEntryOffset) ? 0 : pCurrent->NextEntryOffset + pNext->NextEntryOffset;
                     pNext = pCurrent;
                 }
             }
